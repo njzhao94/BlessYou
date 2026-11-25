@@ -72,7 +72,7 @@ public final class DetectionService extends Service {
             channel.setDescription("显示喷嚏识别状态，并提供随时停止的按钮。");
             channel.setSound(null, null);
             getSystemService(NotificationManager.class).createNotificationChannel(channel);
-            if (Build.VERSION.SDK_INT >= 29) {
+            if (Build.VERSION.SDK_INT >= 30) {
                 startForeground(NOTIFICATION, notification("正在准备声音识别…"), ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE);
             } else startForeground(NOTIFICATION, notification("正在准备声音识别…"));
             active = true;

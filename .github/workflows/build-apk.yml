@@ -45,7 +45,11 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
       - name: Name the installable package
-        run: cp app/build/outputs/apk/debug/app-debug.apk BlessYou-0.1.0.apk
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk BlessYou-0.1.0.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs BlessYou-0.1.0.apk
+          "$ANDROID_HOME/build-tools/35.0.0/aapt2" dump badging BlessYou-0.1.0.apk
+          sha256sum BlessYou-0.1.0.apk
       - uses: actions/upload-artifact@v4
         with:
           name: BlessYou-Android-APK
