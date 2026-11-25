@@ -94,13 +94,19 @@ public final class MainActivity extends Activity {
         test = button("试听 Bless you", Color.WHITE, GREEN);
         add(content, test, 10);
         test.setOnClickListener(view -> {
+            voiceError = "";
             if (DetectionService.active) {
-                startService(new Intent(this, DetectionService.class).setAction(DetectionService.TEST));
+                if (DetectionService.speechReady) {
+                    startService(new Intent(this, DetectionService.class).setAction(DetectionService.TEST));
+                } else {
+                    Toast.makeText(this, "祝福音频正在加载，请稍等后再试听。", Toast.LENGTH_LONG).show();
+                }
             } else if (speaker == null || !speaker.speak()) {
-                Toast.makeText(this, voiceError.isEmpty() ? "英语语音正在准备，请稍等。" : voiceError, Toast.LENGTH_LONG).show();
+                Toast.makeText(this, voiceError.isEmpty() ? "祝福音频正在加载，请稍等后再试听。" : voiceError, Toast.LENGTH_LONG).show();
             }
+            render();
         });
-        voiceDetail = text("正在准备英语语音…", 12, MUTED, false);
+        voiceDetail = text("正在加载内置祝福音频…", 12, MUTED, false);
         add(content, voiceDetail, 8);
 
         LinearLayout settings = card();
@@ -140,7 +146,7 @@ public final class MainActivity extends Activity {
         Button help = button("使用帮助", Color.TRANSPARENT, GREEN);
         add(content, help, 10);
         help.setOnClickListener(view -> new AlertDialog.Builder(this).setTitle("使用帮助")
-                .setMessage("1. 先试听，确认能听见 Bless you，媒体音量已打开。\n\n2. 点开始并允许麦克风权限。状态显示“正在聆听”后再测试。\n\n3. 手机放在附近，保持麦克风无遮挡。识别可能漏报或误报，可调节灵敏度。附近其他人的喷嚏也可能触发。\n\n4. 如果锁屏后停止：打开应用设置 → 电池，允许后台运行或选择不受限制；各版本菜单可能不同。\n\n5. 通话、其他录音应用、系统麦克风开关可能影响识别。手机重启或系统结束应用后，需要再次点开始。\n\n6. 如提示没有英语语音包，可在三星“设置 → 常规管理 → 文字转语音”中下载英语语音。\n\n实验版本 0.1 · 尚需在实际手机上验证。")
+                .setMessage("1. 先试听，确认能听见 Bless you，媒体音量已打开。\n\n2. 点开始并允许麦克风权限。状态显示“正在聆听”后再测试。\n\n3. 手机放在附近，保持麦克风无遮挡。识别可能漏报或误报，可调节灵敏度。附近其他人的喷嚏也可能触发。\n\n4. 如果锁屏后停止：打开应用设置 → 电池，允许后台运行或选择不受限制；各版本菜单可能不同。\n\n5. 通话、其他录音应用、系统麦克风开关可能影响识别。手机重启或系统结束应用后，需要再次点开始。\n\n6. 祝福音频已内置，无需安装英语语音包。若显示播放但听不见，请检查媒体音量及蓝牙等音频输出设备。\n\n实验版本 0.1.1 · 尚需在实际手机上验证。")
                 .setPositiveButton("知道了", null)
                 .setNeutralButton("应用设置", (dialog, which) -> appSettings()).show());
         speaker = new GreetingSpeaker(this, new GreetingSpeaker.Listener() {
@@ -193,15 +199,18 @@ public final class MainActivity extends Activity {
         boolean active = DetectionService.active;
         boolean ready = DetectionService.modelReady && DetectionService.speechReady;
         status.setText(active ? ready ? "正在聆听" : "正在准备…" : DetectionService.error.isEmpty() ? "准备好送出祝福" : "需要处理一下");
-        detail.setText(active ? ready ? "安心做你的事，听见喷嚏后我会回应。" : "正在准备声音识别和英语语音。"
+        detail.setText(active ? ready ? "安心做你的事，听见喷嚏后我会回应。" : "正在准备声音识别和祝福音频。"
                 : DetectionService.error.isEmpty() ? "点开始，听见喷嚏后自动说 Bless you。" : DetectionService.error);
         score.setText(active && ready ? String.format(Locale.ROOT, "当前喷嚏识别分数：%.0f%%", DetectionService.latestScore * 100f) : "声音留在你的手机里");
         toggle.setText(active ? "停止聆听" : "开始聆听");
         count.setText("已送出 " + preferences.getInt("blessings", 0) + " 次祝福");
         long time = preferences.getLong("lastBlessing", 0);
         last.setText(time == 0 ? "等待第一声 Bless you" : "最近一次：" + DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(new Date(time)));
-        test.setEnabled(active ? DetectionService.speechReady : speaker != null && speaker.isReady());
-        voiceDetail.setText(!voiceError.isEmpty() ? voiceError : speaker != null && speaker.isReady() ? "英语语音已就绪；播放音量使用手机媒体音量。" : "正在准备英语语音…");
+        // Keep the button usable so loading and errors are explained instead of silently ignored.
+        test.setEnabled(true);
+        voiceDetail.setText(!voiceError.isEmpty() ? voiceError : speaker != null
+                ? speaker.getStatus() + " · 媒体音量 " + speaker.mediaVolume() + "/" + speaker.mediaMaximum()
+                : "正在加载内置祝福音频…");
     }
     @Override protected void onResume() { super.onResume(); main.post(refresh); }
     @Override protected void onPause() { main.removeCallbacks(refresh); super.onPause(); }

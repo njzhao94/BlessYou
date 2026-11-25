@@ -201,7 +201,7 @@ public final class DetectionService extends Service {
     }
     private void updateNotification() {
         if (active) getSystemService(NotificationManager.class).notify(NOTIFICATION,
-                notification(modelReady && speechReady ? "检测到喷嚏后会说 Bless you，可锁屏使用。" : "正在准备声音识别和英语语音…"));
+                notification(modelReady && speechReady ? "检测到喷嚏后会说 Bless you，可锁屏使用。" : "正在准备声音识别和祝福音频…"));
     }
     private void fail(String message) {
         error = message;

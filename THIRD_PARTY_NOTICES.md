@@ -11,3 +11,5 @@ This source archive does not include third-party binary dependencies or model we
 Apache License 2.0: https://www.apache.org/licenses/LICENSE-2.0
 
 Preserve upstream license notices if distributing a compiled APK. The APK built by Gradle also includes dependency metadata/license resources provided by its dependencies.
+
+The bundled greeting audio was synthesized for this project with Flite SLT through FFmpeg. No Flite executable or voice database is embedded in the Android app.

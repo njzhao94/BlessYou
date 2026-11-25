@@ -1,19 +1,15 @@
 package app.blessyou.sneeze;
 
 import android.content.Context;
+import android.content.res.AssetFileDescriptor;
 import android.media.AudioAttributes;
 import android.media.AudioFocusRequest;
 import android.media.AudioManager;
-import android.os.Bundle;
+import android.media.MediaPlayer;
 import android.os.Handler;
 import android.os.Looper;
-import android.speech.tts.TextToSpeech;
-import android.speech.tts.UtteranceProgressListener;
-import android.speech.tts.Voice;
-import java.util.Comparator;
-import java.util.Locale;
-import java.util.Set;
 
+/** Plays bundled speech without a system TTS engine or an installed voice pack. */
 final class GreetingSpeaker implements AutoCloseable {
     interface Listener {
         void ready();
@@ -22,12 +18,12 @@ final class GreetingSpeaker implements AutoCloseable {
     private final Handler main = new Handler(Looper.getMainLooper());
     private final AudioManager audio;
     private final AudioFocusRequest focus;
-    private TextToSpeech tts;
+    private final Listener listener;
+    private MediaPlayer player;
     private boolean ready;
     private boolean closed;
     private boolean focusHeld;
-    private String activeUtterance;
-    private final Listener listener;
+    private String status = "正在加载内置祝福音频…";
 
     GreetingSpeaker(Context context, Listener listener) {
         this.listener = listener;
@@ -38,66 +34,79 @@ final class GreetingSpeaker implements AutoCloseable {
         focus = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
                 .setAudioAttributes(attributes)
                 .setOnAudioFocusChangeListener(change -> {
-                    if (change == AudioManager.AUDIOFOCUS_LOSS && tts != null) {
-                        tts.stop();
-                        activeUtterance = null;
+                    if (closed || player == null) return;
+                    if (change == AudioManager.AUDIOFOCUS_LOSS || change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
+                        if (ready && player.isPlaying()) {
+                            player.pause();
+                            player.seekTo(0);
+                        }
+                        status = "播放已暂停，可再次点试听。";
                         releaseFocus();
                     }
                 }, main).build();
-        tts = new TextToSpeech(context.getApplicationContext(), result -> main.post(() -> {
-            if (closed) return;
-            if (result != TextToSpeech.SUCCESS) { listener.error("无法启动语音，请检查手机的文字转语音设置。"); return; }
-            int language = tts.setLanguage(Locale.UK);
-            if (language == TextToSpeech.LANG_MISSING_DATA || language == TextToSpeech.LANG_NOT_SUPPORTED) {
-                language = tts.setLanguage(Locale.US);
-            }
-            if (language < 0) { listener.error("请先在手机的文字转语音设置中安装英语语音包。"); return; }
-            Set<Voice> voices = tts.getVoices();
-            Voice offline = voices == null ? null : voices.stream()
-                    .filter(v -> "en".equals(v.getLocale().getLanguage()) && !v.isNetworkConnectionRequired())
-                    .min(Comparator.comparingInt(v -> "GB".equals(v.getLocale().getCountry()) ? 0
-                            : "US".equals(v.getLocale().getCountry()) ? 1 : 2)).orElse(null);
-            if (offline == null || tts.setVoice(offline) == TextToSpeech.ERROR) {
-                listener.error("请先安装可离线使用的英语语音包，再重新打开应用。"); return;
-            }
-            tts.setAudioAttributes(attributes);
-            tts.setSpeechRate(0.92f);
-            tts.setPitch(1.02f);
-            tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
-                @Override public void onStart(String id) { }
-                @Override public void onDone(String id) { main.post(() -> finished(id)); }
-                @Override public void onError(String id) { main.post(() -> {
-                    if (id.equals(activeUtterance)) {
-                        finished(id);
-                        if (!closed) listener.error("语音播放失败，请检查英语语音包和媒体音量。");
-                    }
-                }); }
-                @Override public void onStop(String id, boolean interrupted) { main.post(() -> finished(id)); }
-            });
-            ready = true;
-            listener.ready();
-        }));
-    }
-    boolean isReady() { return ready && !closed; }
-    boolean speak() {
-        if (!isReady()) return false;
         try {
-            focusHeld = audio.requestAudioFocus(focus) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED;
-            if (!focusHeld) { listener.error("暂时无法播放，请在通话或其他音频结束后重试。"); return false; }
-            Bundle parameters = new Bundle();
-            parameters.putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 1.0f);
-            activeUtterance = "bless-" + System.nanoTime();
-            int result = tts.speak("Bless you!", TextToSpeech.QUEUE_FLUSH, parameters, activeUtterance);
-            if (result == TextToSpeech.ERROR) { activeUtterance = null; releaseFocus(); return false; }
-            return true;
-        } catch (RuntimeException error) {
-            releaseFocus();
-            listener.error("暂时无法播放语音，请重试。");
-            return false;
+            player = new MediaPlayer();
+            player.setAudioAttributes(attributes);
+            player.setVolume(1f, 1f);
+            player.setOnPreparedListener(prepared -> {
+                if (closed) return;
+                ready = true;
+                status = "内置祝福音频已就绪";
+                listener.ready();
+            });
+            player.setOnCompletionListener(completed -> {
+                status = "祝福音频已播放";
+                releaseFocus();
+            });
+            player.setOnErrorListener((failed, what, extra) -> {
+                ready = false;
+                releaseFocus();
+                status = "音频播放失败（" + what + "/" + extra + "），请重新打开应用。";
+                if (!closed) listener.error(status);
+                return true;
+            });
+            try (AssetFileDescriptor asset = context.getResources().openRawResourceFd(R.raw.bless_you)) {
+                player.setDataSource(asset.getFileDescriptor(), asset.getStartOffset(), asset.getLength());
+            }
+            player.prepareAsync();
+        } catch (Exception problem) {
+            status = "无法加载内置祝福音频，请重新打开应用。";
+            main.post(() -> { if (!closed) listener.error(status); });
         }
     }
-    private void finished(String id) {
-        if (id.equals(activeUtterance)) { activeUtterance = null; releaseFocus(); }
+    boolean isReady() { return ready && !closed; }
+    String getStatus() { return status; }
+    int mediaVolume() { return audio.getStreamVolume(AudioManager.STREAM_MUSIC); }
+    int mediaMaximum() { return audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC); }
+
+    boolean speak() {
+        if (!isReady()) {
+            if (!closed) listener.error(status);
+            return false;
+        }
+        if (mediaVolume() == 0 || audio.isStreamMute(AudioManager.STREAM_MUSIC)) {
+            status = "媒体音量为 0，请按音量键调高“媒体”音量后再试听。";
+            listener.error(status);
+            audio.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_SAME, AudioManager.FLAG_SHOW_UI);
+            return false;
+        }
+        try {
+            focusHeld = audio.requestAudioFocus(focus) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED;
+            if (!focusHeld) {
+                status = "暂时无法播放，请在通话或其他音频结束后重试。";
+                listener.error(status);
+                return false;
+            }
+            player.seekTo(0);
+            player.start();
+            status = "正在播放 Bless you…";
+            return true;
+        } catch (RuntimeException problem) {
+            releaseFocus();
+            status = "暂时无法播放音频，请重新打开应用。";
+            listener.error(status);
+            return false;
+        }
     }
     private void releaseFocus() {
         if (focusHeld) { audio.abandonAudioFocusRequest(focus); focusHeld = false; }
@@ -105,7 +114,13 @@ final class GreetingSpeaker implements AutoCloseable {
     @Override public void close() {
         closed = true;
         ready = false;
-        if (tts != null) { tts.stop(); tts.shutdown(); }
+        if (player != null) {
+            player.setOnPreparedListener(null);
+            player.setOnCompletionListener(null);
+            player.setOnErrorListener(null);
+            player.release();
+            player = null;
+        }
         releaseFocus();
     }
 }
