@@ -1,0 +1,82 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'app.blessyou.sneeze'
+    compileSdk 36
+    defaultConfig {
+        applicationId 'app.blessyou.sneeze'
+        minSdk 26
+        targetSdk 36
+        versionCode 1
+        versionName '0.1.0'
+        ndk { abiFilters 'arm64-v8a', 'x86_64' }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    buildTypes {
+        release { minifyEnabled false }
+    }
+    androidResources { noCompress += 'tflite' }
+    packaging { jniLibs { useLegacyPackaging = false } }
+    lint { abortOnError = true }
+}
+
+dependencies {
+    // The 1.x Interpreter API is used; 2.x has a different API.
+    implementation 'com.google.ai.edge.litert:litert:1.4.1'
+    testImplementation 'junit:junit:4.13.2'
+}
+
+def generatedAssets = layout.buildDirectory.dir('generated/assets/yamnet')
+android.sourceSets.main.assets.srcDir(generatedAssets)
+
+tasks.register('downloadYamnet') {
+    inputs.property('modelVersion', 'mediapipe-yamnet-float32-1')
+    outputs.dir(generatedAssets)
+    doLast {
+        def destination = generatedAssets.get().asFile
+        destination.mkdirs()
+        def download = { String address, File target ->
+            def temporary = new File(target.path + '.part')
+            try {
+                def connection = new URL(address).openConnection()
+                connection.connectTimeout = 30000
+                connection.readTimeout = 120000
+                connection.getInputStream().withCloseable { input ->
+                    temporary.withOutputStream { output -> output << input }
+                }
+                java.nio.file.Files.move(temporary.toPath(), target.toPath(),
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+            } finally { temporary.delete() }
+        }
+        def model = new File(destination, 'yamnet.tflite')
+        if (!model.exists()) {
+            download('https://storage.googleapis.com/mediapipe-models/audio_classifier/yamnet/float32/1/yamnet.tflite', model)
+        }
+        def validModel = false
+        if (model.length() > 1000000 && model.length() < 50000000) {
+            model.withInputStream { input ->
+                def header = new byte[8]
+                validModel = input.read(header) == 8 && new String(header, 4, 4, 'US-ASCII') == 'TFL3'
+            }
+        }
+        if (!validModel) {
+            model.delete()
+            throw new GradleException('The downloaded YAMNet model is invalid; please build again.')
+        }
+        def labels = new File(destination, 'yamnet_class_map.csv')
+        if (!labels.exists()) {
+            download('https://raw.githubusercontent.com/tensorflow/models/master/research/audioset/yamnet/yamnet_class_map.csv', labels)
+        }
+        def lines = labels.readLines('UTF-8').findAll { !it.trim().isEmpty() }
+        if (lines.size() != 522 || lines[45] != '44,/m/01hsr_,Sneeze') {
+            labels.delete()
+            throw new GradleException('Unexpected YAMNet class order; refusing to build.')
+        }
+        def digest = java.security.MessageDigest.getInstance('SHA-256').digest(model.bytes).encodeHex().toString()
+        new File(destination, 'model-info.txt').text = "YAMNet float32 version 1\nSHA-256: ${digest}\nSneeze class: 44\n"
+    }
+}
+tasks.named('preBuild').configure { dependsOn('downloadYamnet') }

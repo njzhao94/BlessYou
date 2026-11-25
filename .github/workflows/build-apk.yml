@@ -1,0 +1,51 @@
+name: Build Android APK
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'app/**'
+      - 'build.gradle'
+      - 'settings.gradle'
+      - 'gradle.properties'
+      - '.github/workflows/build-apk.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Install Android SDK components
+        run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0'
+      - name: Build, run unit checks and lint
+        run: gradle --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
+      - name: Preserve verification reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Verification-reports
+          path: |
+            app/build/reports/
+            app/build/outputs/logs/
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Name the installable package
+        run: cp app/build/outputs/apk/debug/app-debug.apk BlessYou-0.1.0.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BlessYou-Android-APK
+          path: BlessYou-0.1.0.apk
+          if-no-files-found: error
+          retention-days: 14
