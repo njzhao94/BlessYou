@@ -2,20 +2,31 @@
 
 2026-11-25
 
-## 已执行
+## 构建成果
 
-- 使用 OpenJDK 21 的编译器，以 Java 17 语法和字节码目标编译核心识别门控和声音缓冲类。
-- 运行 CoreChecks：32 项断言通过，包括首次触发、重叠帧、持续高分、低分重新允许触发、间隔边界、咳嗽/拍手竞争分类、异常数值、PCM 转换、缓冲回绕、清除与大块输入。
-- 解析全部 8 个 Java 源文件，未发现语法错误；未验证 Android API 类型解析。
-- 检查 XML 可解析、必需组件和资源存在，以及未声明网络或存储权限。
-- 检查 Unix Gradle 启动脚本的 shell 语法。
+- APK：`BlessYou-0.1.0.apk`，14,570,656 bytes。
+- 应用 ID：`app.blessyou.sneeze`；最低 API 26，目标 API 36。
+- 构建源代码提交：`c9ffa7afc21eb30a5d7b0b37d995e589546a76a7`。
+- 成功的构建：https://github.com/njzhao94/BlessYou/actions/runs/45605710962
+- APK SHA-256：`22d153aa116b91e6ac52f2341830f806fc558e4d3b05a84463049567609416ff`。
 
-## 未执行
+## 已执行并通过
 
-- 下载 Android SDK、Gradle 和 LiteRT 二进制依赖：当前执行环境对官方下载地址返回 HTTP 403。
-- 下载并运行 YAMNet 模型：同样受下载限制影响。
-- Android 完整编译、Android Lint、APK 签名与安装。
-- 模拟器或 S24 Ultra 真机运行，包括麦克风、英语 TTS、后台、锁屏和识别准确性。
-- GitHub Actions 构建流程：已提供配置，尚未上传或运行。
+- Android Java 编译与 `assembleDebug` 打包。
+- `testDebugUnitTest`：CoreChecks 的 32 项行为断言通过。
+- `lintDebug`：无错误；剩余提示为本地化文本、Gradle 可用更新、备份配置和持续聆听会话的唤醒锁超时建议。
+- Android SDK `apksigner verify --verbose --print-certs`：APK Signature Scheme v2 验证通过。
+- `aapt2 dump badging`：应用标识、版本、目标 API 和 ARM64/x86_64 架构匹配。
+- 从 Actions 下载的 ZIP 和其中 APK 的 SHA-256 分别与云端公布值一致。
+- APK ZIP 完整性、Manifest、DEX、YAMNet 模型和 ARM64 原生库存在。
+- 解析实际打包的 YAMNet 模型：FLOAT32 输入 `[15600]`，FLOAT32 输出 `[1, 521]`，无自定义算子。
+- 类别表的第 44 类为 Sneeze；模型 SHA-256 为 `4d8b4a53282dc83ef04e3e7dbc4fbc98082e34e44ed798e16c3a0cdd4c584faf`。
+- ARM64 原生库的全部 LOAD 段对齐为 16,384 bytes。
 
-因此，现阶段成果是**待完成 Android 构建和真机验证的源代码原型**，不是可安装 APK，也不能声称已实现稳定的喷嚏检测。
+## 尚未执行
+
+- S24 Ultra 实机安装、系统英语 TTS、麦克风和通知授权验证。
+- 实际喷嚏、咳嗽、拍手、谈话等声音的识别准确性测试。
+- 锁屏、后台、通话冲突、长时间运行及耗电测试。
+
+这是已编译并签名的测试版 APK；上述检查不等同于已完成真实声音或手机实测。

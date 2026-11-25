@@ -2,9 +2,9 @@
 
 为 Galaxy S24 Ultra 等 Android 手机上“检测喷嚏后自动说 Bless you”而写的原生安卓实验项目。
 
-**当前交付的是源代码项目，尚未生成 APK，也未完成 Android 编译或真机测试。不能把这个 ZIP 当作安装包。**
+**测试版 APK 0.1.0 已成功构建。** 可从[成功的构建记录](https://github.com/njzhao94/BlessYou/actions/runs/45605710962)下载 `BlessYou-Android-APK`，解压后在手机安装其中的 `BlessYou-0.1.0.apk`。源代码 ZIP 本身不是安装包。
 
-已运行并通过 32 项 JVM 核心行为检查；这些检查覆盖声音缓冲、重叠窗口去重、播报间隔和分类分数边界，不代表喷嚏识别准确率或真机兼容性已经得到验证。
+Android 编译、核心测试、Android Lint（无错误）和 APK v2 签名验证已通过。另已检查打包模型的输入输出及 ARM64 库的 16 KB 对齐。32 项核心行为检查覆盖声音缓冲、重叠窗口去重、播报间隔和分类分数边界；喷嚏识别准确率、耗电和 S24 Ultra 锁屏运行仍需真机验证。
 
 ## 使用效果
 
@@ -39,7 +39,7 @@ gradlew.bat :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
 
 ## 得到 APK 的方式 B：GitHub Actions
 
-项目附带手动构建流程，尚未上传到 GitHub，也尚未执行。
+项目已上传到本仓库，并已在 GitHub Actions 成功构建。也可以按以下方式在自己的仓库复现：
 
 1. 建立你自己的私有 GitHub 仓库。
 2. 将本文件旁边的项目文件上传到仓库根目录，保留 `.github/workflows/build-apk.yml`；不要在仓库根目录外再套一层 BlessYou 文件夹。
@@ -47,7 +47,7 @@ gradlew.bat :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
 4. 成功后下载页面底部的 `BlessYou-Android-APK`，解压获得 `BlessYou-0.1.0.apk`。
 5. 若失败，保留失败步骤的日志；不要将尚未构建的项目当成 APK。
 
-流程只在手动点击运行后执行，不发布应用，不创建 Releases，不授予仓库写入权限。
+本仓库在 main 分支的应用代码或构建配置发生变化后自动构建，也支持手动执行。构建流程不创建 Releases，不授予工作流仓库写入权限。
 
 ## 在 S24 Ultra 上安装和测试
 
@@ -61,7 +61,7 @@ gradlew.bat :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
 
 ## 验证状态和限制
 
-见 `VALIDATION.md`。当前不能保证下载依赖、构建、锁屏运行或识别效果成功。持续使用麦克风和模型会耗电；只在需要时开始聆听。
+见 `VALIDATION.md`。当前测试版已成功编译并签名，但尚未在实际手机上验证锁屏运行或识别效果。持续使用麦克风和模型会耗电；只在需要时开始聆听。
 
 ## 构建配置
 
