@@ -1,32 +1,28 @@
-# 验证记录
+# 验证记录：0.1.1
 
 2026-11-25
 
-## 构建成果
+## 修复内容
 
-- APK：`BlessYou-0.1.0.apk`，14,570,656 bytes。
-- 应用 ID：`app.blessyou.sneeze`；最低 API 26，目标 API 36。
-- 构建源代码提交：`c9ffa7afc21eb30a5d7b0b37d995e589546a76a7`。
-- 成功的构建：https://github.com/njzhao94/BlessYou/actions/runs/45605710962
-- APK SHA-256：`22d153aa116b91e6ac52f2341830f806fc558e4d3b05a84463049567609416ff`。
+- 使用内置的 `res/raw/bless_you.mp3` 直接播放祝福。
+- 移除系统 TextToSpeech 引擎和英语语音包要求。
+- 试听按钮保持可操作，说明加载或播放错误；显示媒体音量，音量为零时提示调高。
 
-## 已执行并通过
+## 构建与校验
 
-- Android Java 编译与 `assembleDebug` 打包。
-- `testDebugUnitTest`：CoreChecks 的 32 项行为断言通过。
-- `lintDebug`：无错误；剩余提示为本地化文本、Gradle 可用更新、备份配置和持续聆听会话的唤醒锁超时建议。
-- Android SDK `apksigner verify --verbose --print-certs`：APK Signature Scheme v2 验证通过。
-- `aapt2 dump badging`：应用标识、版本、目标 API 和 ARM64/x86_64 架构匹配。
-- 从 Actions 下载的 ZIP 和其中 APK 的 SHA-256 分别与云端公布值一致。
-- APK ZIP 完整性、Manifest、DEX、YAMNet 模型和 ARM64 原生库存在。
-- 解析实际打包的 YAMNet 模型：FLOAT32 输入 `[15600]`，FLOAT32 输出 `[1, 521]`，无自定义算子。
-- 类别表的第 44 类为 Sneeze；模型 SHA-256 为 `4d8b4a53282dc83ef04e3e7dbc4fbc98082e34e44ed798e16c3a0cdd4c584faf`。
-- ARM64 原生库的全部 LOAD 段对齐为 16,384 bytes。
+- 源代码提交：`6f7557c879542d22eab5ac0ad0c28d0be8938571`。
+- 成功构建：https://github.com/njzhao94/BlessYou/actions/runs/45608303491
+- `testDebugUnitTest`、`lintDebug`、`assembleDebug` 通过；核心逻辑包含 32 项行为断言。
+- 内置音频可由 FFmpeg 解码，时长 1.320 秒，平均音量 -16.9 dB，峰值 -4.0 dB。
+- 最终 APK 内的音频与源音频字节一致，且未做 ZIP 压缩，可使用原始资源文件描述符播放。
+- 实际 APK 的 DEX 包含 MediaPlayer，不包含 TextToSpeech 类引用。
+- APK 重新使用保留的开发密钥签名，v2 和 v3 签名验证通过，ZIP 完整性检查通过。
+- 最终对话交付文件：`BlessYou-0.1.1.apk`，14,582,767 bytes。
+- 对话交付 APK SHA-256：`6df88bbcfd2e91e8625b557ca1b1d6278bff5e877a20ef47bd170fc20a6e87e1`。
+- 对话交付签名证书 SHA-256：`0109b13ac9ad150c1d1f875223b1dbe1d1a98d818fb6798b37d0ad03a047c50c`。
 
-## 尚未执行
+GitHub Actions 的直接下载文件是临时调试签名；以上最终 APK 哈希对应对话提供的重新签名文件。私钥和密码未上传到公开仓库。
 
-- S24 Ultra 实机安装、系统英语 TTS、麦克风和通知授权验证。
-- 实际喷嚏、咳嗽、拍手、谈话等声音的识别准确性测试。
-- 锁屏、后台、通话冲突、长时间运行及耗电测试。
+## 真机待验证
 
-这是已编译并签名的测试版 APK；上述检查不等同于已完成真实声音或手机实测。
+本次修复针对用户反馈的英语离线语音包缺失问题。S24 Ultra 的扬声器输出、蓝牙路由、实际喷嚏识别、锁屏和长时间运行仍需实机测试。
